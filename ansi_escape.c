@@ -1,3 +1,0 @@
-void erase_display() {
-	;
-}

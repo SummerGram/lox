@@ -1,66 +1,26 @@
-/* Hardware text mode color constants. */
-enum vga_color {
-	VGA_COLOR_BLACK = 0,
-	VGA_COLOR_BLUE = 1,
-	VGA_COLOR_GREEN = 2,
-	VGA_COLOR_CYAN = 3,
-	VGA_COLOR_RED = 4,
-	VGA_COLOR_MAGENTA = 5,
-	VGA_COLOR_BROWN = 6,
-	VGA_COLOR_LIGHT_GREY = 7,
-	VGA_COLOR_DARK_GREY = 8,
-	VGA_COLOR_LIGHT_BLUE = 9,
-	VGA_COLOR_LIGHT_GREEN = 10,
-	VGA_COLOR_LIGHT_CYAN = 11,
-	VGA_COLOR_LIGHT_RED = 12,
-	VGA_COLOR_LIGHT_MAGENTA = 13,
-	VGA_COLOR_LIGHT_BROWN = 14,
-	VGA_COLOR_WHITE = 15,
-};
+#include "terminal.h"
 
-enum status {
-	NORMAL,
-	ESCAPE,
-	ESCAPE_CONTROL,
-};
-
-struct {
-	size_t row;
-	size_t column;
-	uint8_t color;
-	uint8_t state;
-	uint8_t saved_row;
-	uint8_t saved_column;
-	uint8_t escape_n;
-} *cursor;
-
-const size_t VGA_WIDTH = 80;
-const size_t VGA_HEIGHT = 25;
+const int VGA_WIDTH = 80;
+const int VGA_HEIGHT = 25;
 
 uint16_t * const terminal_buffer = (uint16_t *) 0xB8000;
 
-static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) 
-{
+static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
 }
  
-static inline uint16_t vga_entry(unsigned char uc, uint8_t color) 
-{
+static inline uint16_t vga_entry(unsigned char uc, uint8_t color) {
 	return (uint16_t) uc | (uint16_t) color << 8;
 }
-
-void erase_line(void) {
-	//for (size_t y = 0; y < VGA_HEIGHT; y++) {
-	//	const size_t index = y * VGA_WIDTH;
-	//}
-}
  
-void terminal_initialize(void) 
-{
+void terminal_initialize(void) {
 	cursor->row = 0;
 	cursor->column = 0;
 	cursor->color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
 	cursor->state = NORMAL;
+	cursor->saved_row = 0;
+	cursor->saved_column = 0;
+	cursor->value = 0;
 
 	for (size_t y = 0; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {
@@ -70,19 +30,35 @@ void terminal_initialize(void)
 	}
 }
  
-void terminal_setcolor(uint8_t color) 
-{
+void terminal_setcolor(uint8_t color) {
 	cursor->color = color;
 }
  
-void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) 
-{
+void terminal_putentryat(char c, uint8_t color, int x, int y) {
 	const size_t index = y * VGA_WIDTH + x;
 	terminal_buffer[index] = vga_entry(c, color);
 }
 
-void terminal_putchar(char c) 
-{
+void erase_line(int option) {
+	if (option == 0) {
+		for (int x = cursor->column; x < VGA_WIDTH; x++) {
+			const int index = cursor->row * VGA_WIDTH + x;
+			terminal_buffer[index] = vga_entry(' ', cursor->color);
+		}
+	} else if (option == 1) {
+		for (int x = cursor->column - 1; x >= 0; x--) {
+			const int index = cursor->row * VGA_WIDTH + x;
+			terminal_buffer[index] = vga_entry(' ', cursor->color);
+		}
+	} else if (option == 2) {
+		for (int x = 0; x < VGA_WIDTH; x++) {
+			const int index = cursor->row * VGA_WIDTH + x;
+			terminal_buffer[index] = vga_entry(' ', cursor->color);
+		}
+	}
+}
+
+void terminal_putchar(char c) {
 	switch (cursor->state) {
 		case NORMAL:
 			if (c == '\x1B') {
@@ -116,14 +92,38 @@ void terminal_putchar(char c)
 				cursor->state = NORMAL;
 				cursor->column = cursor->saved_column;
 				cursor->row = cursor->saved_row;
-			}
-			
+			} else if (c >= '0' && c <= '9') {
+				cursor->state = FVALUE;
+				cursor->value = c - '0';
+				cursor->saved_row = cursor->value;
+			} else
+				cursor->state = NORMAL;
 			break;
+
+		case FVALUE:
+			if (c == 'A') {
+				cursor->state = NORMAL;
+				cursor->row = (cursor->row - cursor->value < 0) ? 0 : cursor->row - cursor->value;
+			} else if (c == 'B') {
+				cursor->state = NORMAL;
+				cursor->row = (cursor->row + cursor->value >= (int) VGA_HEIGHT) ? (int) VGA_HEIGHT - 1 : cursor->row + cursor->value;
+			} else if (c == 'C') {
+				cursor->state = NORMAL;
+				cursor->column = (cursor->column + cursor->value >= (int) VGA_WIDTH) ? (int) VGA_WIDTH - 1 : cursor->column + cursor->value;
+			} else if (c == 'D') {
+				cursor->state = NORMAL;
+				cursor->column = (cursor->column + cursor->value < 0) ? 0 : cursor->column - cursor->value;
+			} else if (c == 'K') {
+				erase_line(cursor->value);
+				cursor->state = NORMAL;
+			} else if (c >= '0' && c <= '9')
+				cursor->value = cursor->value * 10 + c - '0';
+			else
+				cursor->state = 0;
 	}
 }
  
-void terminal_writestring(const char* data) 
-{
+void terminal_writestring(const char* data) {
 	for (size_t i = 0; data[i] != '\0'; i++)
 		terminal_putchar(data[i]);
 }
