@@ -18,19 +18,18 @@ clean:
 	rm *.o os.bin
 
 install:
-	echo "Y" | sudo apt install build-essential
-	echo "Y" | sudo apt install bison
-	echo "Y" | sudo apt install flex
-	echo "Y" | sudo apt install libgmp3-dev
-	echo "Y" | sudo apt install libmpc-dev
-	echo "Y" | sudo apt install libmpfr-dev
-	echo "Y" | sudo apt install texinfo
-	echo "Y" | sudo apt install libcloog-isl-dev
-	echo "Y" | sudo apt install libisl-dev
-	echo "Y" | sudo apt install qemu-system-i386
-	echo "Y" | sudo apt install wget
-	echo "Y" | sudo apt-get update
-	echo "Y" | sudo apt dist-upgrade
-	echo "Y" | sudo apt autoremove
-	sudo ./setup.sh
-	echo " "
+	@sudo apt install -y build-essential
+	@sudo apt install -y bison
+	@sudo apt install -y flex
+	@sudo apt install -y libgmp3-dev
+	@sudo apt install -y libmpc-dev
+	@sudo apt install -y libmpfr-dev
+	@sudo apt install -y texinfo
+	@sudo apt install -y libisl-dev
+	@sudo apt install -y qemu-system-i386
+	@sudo apt install -y wget
+	@sudo apt-get -y update
+	@sudo apt -y dist-upgrade
+	@sudo apt -y autoremove
+	@sudo ./setup.sh
+	@echo " "
