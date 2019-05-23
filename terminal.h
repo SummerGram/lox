@@ -41,11 +41,13 @@ struct {
 	uint8_t saved_column;
 	uint8_t escape_n;
 	int value;
+	int second_value;
 } *cursor;
 
 void terminal_initialize(void);
 void terminal_setcolor(uint8_t color);
 void terminal_putentryat(char c, uint8_t color, int x, int y);
+int screen_index(int y, int x);
 void terminal_putchar(char c); 
 void terminal_writestring(const char* data);
 

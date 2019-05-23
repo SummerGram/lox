@@ -39,28 +39,19 @@ void terminal_putentryat(char c, uint8_t color, int x, int y) {
 	terminal_buffer[index] = vga_entry(c, color);
 }
 
-void erase_line(int option) {
-	if (option == 0) {
-		for (int x = cursor->column; x < VGA_WIDTH; x++) {
-			const int index = cursor->row * VGA_WIDTH + x;
-			terminal_buffer[index] = vga_entry(' ', cursor->color);
-		}
-	} else if (option == 1) {
-		for (int x = cursor->column - 1; x >= 0; x--) {
-			const int index = cursor->row * VGA_WIDTH + x;
-			terminal_buffer[index] = vga_entry(' ', cursor->color);
-		}
-	} else if (option == 2) {
-		for (int x = 0; x < VGA_WIDTH; x++) {
-			const int index = cursor->row * VGA_WIDTH + x;
-			terminal_buffer[index] = vga_entry(' ', cursor->color);
-		}
-	}
+int screen_index(int y, int x) {
+	return y * VGA_WIDTH + x;
+}
+
+void erase(int start, int end) {
+	for (; start <= end; start++)
+		terminal_buffer[start] = vga_entry(' ', cursor->color);
 }
 
 void terminal_putchar(char c) {
 	switch (cursor->state) {
 		case NORMAL:
+			cursor->value = 0;
 			if (c == '\x1B') {
 				cursor->state = ESCAPE;
 				break;
@@ -84,7 +75,33 @@ void terminal_putchar(char c) {
 			break;
 
 		case ESCAPE_CONTROL:
-			if (c == 's') {
+			if (c == 'A') {
+				cursor->value = 1;
+				cursor->state = NORMAL;
+				cursor->row = (cursor->row - cursor->value < 0) ? 0 : cursor->row - cursor->value;
+			} else if (c == 'B') {
+				cursor->value = 1;
+				cursor->state = NORMAL;
+				cursor->row = (cursor->row + cursor->value >= (int) VGA_HEIGHT) ? (int) VGA_HEIGHT - 1 : cursor->row + cursor->value;
+			} else if (c == 'C') {
+				cursor->value = 1;
+				cursor->state = NORMAL;
+				cursor->column = (cursor->column + cursor->value >= (int) VGA_WIDTH) ? (int) VGA_WIDTH - 1 : cursor->column + cursor->value;
+			} else if (c == 'D') {
+				cursor->value = 1;
+				cursor->state = NORMAL;
+				cursor->column = (cursor->column - cursor->value < 0) ? 0 : cursor->column - cursor->value;
+			} else if (c == 'E') {
+				cursor->value = 1;
+				cursor->state = NORMAL;
+				cursor->column = 0;
+				cursor->row = (cursor->row + cursor->value >= (int) VGA_HEIGHT) ? (int) VGA_HEIGHT - 1 : cursor->row + cursor->value;
+			} else if (c == 'F') {
+				cursor->value = 1;
+				cursor->state = NORMAL;
+				cursor->column = 0;
+				cursor->row = (cursor->row - cursor->value < 0) ? 0 : cursor->row - cursor->value;
+			} else if (c == 's') {
 				cursor->state = NORMAL;
 				cursor->saved_column = cursor->column;
 				cursor->saved_row = cursor->row;
@@ -95,31 +112,102 @@ void terminal_putchar(char c) {
 			} else if (c >= '0' && c <= '9') {
 				cursor->state = FVALUE;
 				cursor->value = c - '0';
-				cursor->saved_row = cursor->value;
-			} else
+			} else if (c == 'J') {
+				erase(screen_index(cursor->row, cursor->column), screen_index(VGA_HEIGHT, 0) - 1);
+
+				cursor->state = NORMAL;
+			} else if (c == 'K') {
+				erase(screen_index(cursor->row, cursor->column), screen_index(cursor->row + 1, 0) - 1);
+
+				cursor->state = NORMAL;
+			} else if (c == ';') {
+				cursor->state = SVALUE;
+				cursor->second_value = 0;
+			}
+			else
 				cursor->state = NORMAL;
 			break;
 
 		case FVALUE:
 			if (c == 'A') {
+				if (cursor->value == 0)
+					cursor->value = 1;
+
 				cursor->state = NORMAL;
 				cursor->row = (cursor->row - cursor->value < 0) ? 0 : cursor->row - cursor->value;
 			} else if (c == 'B') {
+				if (cursor->value == 0)
+					cursor->value = 1;
+
 				cursor->state = NORMAL;
 				cursor->row = (cursor->row + cursor->value >= (int) VGA_HEIGHT) ? (int) VGA_HEIGHT - 1 : cursor->row + cursor->value;
 			} else if (c == 'C') {
+				if (cursor->value == 0)
+					cursor->value = 1;
+
 				cursor->state = NORMAL;
 				cursor->column = (cursor->column + cursor->value >= (int) VGA_WIDTH) ? (int) VGA_WIDTH - 1 : cursor->column + cursor->value;
 			} else if (c == 'D') {
+				if (cursor->value == 0)
+					cursor->value = 1;
+
 				cursor->state = NORMAL;
-				cursor->column = (cursor->column + cursor->value < 0) ? 0 : cursor->column - cursor->value;
+				cursor->column = (cursor->column - cursor->value < 0) ? 0 : cursor->column - cursor->value;
+			} else if (c == 'E') {
+				cursor->state = NORMAL;
+				cursor->column = 0;
+				cursor->row = (cursor->row + cursor->value >= (int) VGA_HEIGHT) ? (int) VGA_HEIGHT - 1 : cursor->row + cursor->value;
+			} else if (c == 'F') {
+				cursor->state = NORMAL;
+				cursor->column = 0;
+				cursor->row = (cursor->row - cursor->value < 0) ? 0 : cursor->row - cursor->value;
 			} else if (c == 'K') {
-				erase_line(cursor->value);
+				if (cursor->value == 0)
+					erase(screen_index(cursor->row, cursor->column), screen_index(cursor->row + 1, 0) - 1);
+				else if (cursor->value == 1)
+					erase(screen_index(cursor->row - 1, VGA_WIDTH), screen_index(cursor->row, cursor->column));
+				else if (cursor->value == 2)
+					erase(screen_index(cursor->row - 1, VGA_WIDTH), screen_index(cursor->row + 1, 0) - 1);
+
+				cursor->state = NORMAL;
+			} else if (c == 'J') {
+				if (cursor->value == 0)
+					erase(screen_index(cursor->row, cursor->column), screen_index(VGA_HEIGHT, 0) - 1);
+				else if (cursor->value == 1)
+					erase(0, screen_index(cursor->row, cursor->column));
+				else if (cursor->value == 2)
+					erase(0, screen_index(VGA_HEIGHT, 0) - 1);
+			
 				cursor->state = NORMAL;
 			} else if (c >= '0' && c <= '9')
 				cursor->value = cursor->value * 10 + c - '0';
-			else
-				cursor->state = 0;
+			else if (c == ';') {
+				cursor->state = SVALUE;
+				cursor->second_value = 0;
+			} else
+				cursor->state = NORMAL;
+
+			break;
+
+		case SVALUE:
+			if (c >= '0' && c <= '9')
+				cursor->second_value = cursor->second_value * 10 + c - '0';
+			else if (c == 'H') {
+				if (cursor->value == 0)
+					cursor->value = 1;
+				if (cursor->second_value == 0)
+					cursor->second_value = 1;
+
+				cursor->value -= 1;
+				cursor->second_value -= 1;
+
+				cursor->row = cursor->value;
+				cursor->column = cursor->second_value;
+				cursor->state = NORMAL;
+			} else
+				cursor->state = NORMAL;
+
+			break;
 	}
 }
  

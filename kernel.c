@@ -19,9 +19,10 @@ void kernel_main(void)
 	const char *a = "\x1B[2A";
 	const char *b = "\x1B[s";
 	const char *c = "\x1B[u";
-	const char *d = "\x1B[2K";
+	const char *d = "\x1B[;3H";
  
 	/* Newline support is left as an exercise. */
+	//while (1) {
 	terminal_writestring("Hello, kernel World!\ns");
 	terminal_writestring("Hello, kernel World!\ns");
 	terminal_writestring("ABCD");
