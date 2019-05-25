@@ -39,7 +39,7 @@ void terminal_putentryat(char c, uint8_t color, int x, int y) {
 	terminal_buffer[index] = vga_entry(c, color);
 }
 
-int screen_index(int y, int x) {
+int get_screen_index(int y, int x) {
 	return y * VGA_WIDTH + x;
 }
 
@@ -113,11 +113,11 @@ void terminal_putchar(char c) {
 				cursor->state = FVALUE;
 				cursor->value = c - '0';
 			} else if (c == 'J') {
-				erase(screen_index(cursor->row, cursor->column), screen_index(VGA_HEIGHT, 0) - 1);
+				erase(get_screen_index(cursor->row, cursor->column), get_screen_index(VGA_HEIGHT, 0) - 1);
 
 				cursor->state = NORMAL;
 			} else if (c == 'K') {
-				erase(screen_index(cursor->row, cursor->column), screen_index(cursor->row + 1, 0) - 1);
+				erase(get_screen_index(cursor->row, cursor->column), get_screen_index(cursor->row + 1, 0) - 1);
 
 				cursor->state = NORMAL;
 			} else if (c == ';') {
@@ -163,20 +163,20 @@ void terminal_putchar(char c) {
 				cursor->row = (cursor->row - cursor->value < 0) ? 0 : cursor->row - cursor->value;
 			} else if (c == 'K') {
 				if (cursor->value == 0)
-					erase(screen_index(cursor->row, cursor->column), screen_index(cursor->row + 1, 0) - 1);
+					erase(get_screen_index(cursor->row, cursor->column), get_screen_index(cursor->row + 1, 0) - 1);
 				else if (cursor->value == 1)
-					erase(screen_index(cursor->row - 1, VGA_WIDTH), screen_index(cursor->row, cursor->column));
+					erase(get_screen_index(cursor->row - 1, VGA_WIDTH), get_screen_index(cursor->row, cursor->column));
 				else if (cursor->value == 2)
-					erase(screen_index(cursor->row - 1, VGA_WIDTH), screen_index(cursor->row + 1, 0) - 1);
+					erase(get_screen_index(cursor->row - 1, VGA_WIDTH), get_screen_index(cursor->row + 1, 0) - 1);
 
 				cursor->state = NORMAL;
 			} else if (c == 'J') {
 				if (cursor->value == 0)
-					erase(screen_index(cursor->row, cursor->column), screen_index(VGA_HEIGHT, 0) - 1);
+					erase(get_screen_index(cursor->row, cursor->column), get_screen_index(VGA_HEIGHT, 0) - 1);
 				else if (cursor->value == 1)
-					erase(0, screen_index(cursor->row, cursor->column));
+					erase(0, get_screen_index(cursor->row, cursor->column));
 				else if (cursor->value == 2)
-					erase(0, screen_index(VGA_HEIGHT, 0) - 1);
+					erase(0, get_screen_index(VGA_HEIGHT, 0) - 1);
 			
 				cursor->state = NORMAL;
 			} else if (c >= '0' && c <= '9')
